@@ -5,28 +5,26 @@ import cv2
 from flask_cors import CORS
 import CNNModel1
 import torch
+import torchvision.transforms as transforms
+from PIL import Image
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/todo/api/v1.0/*": {"origins": "*"}})
 
 img_width, img_height = 224, 224
-inv_mapping = {0: 'normal', 1: 'COVID-19'}
 
 # Specify the pytorch model path
 PATH = "models/model_scratch.pt"
 
-def load_image_firebase(image_path):
-    print('load_image_firebase')
-    print(image_path)
+def load_input_image(image_path):
     file_name = format_file_name(image_path)
-    print(file_name)
     urllib.request.urlretrieve(image_path, file_name)
-    img = cv2.imread(file_name)
-    print (img.shape)
-    img = cv2.resize(img, (img_width, img_height))
-    img = img.astype('float32') / 255.0
-
-    return img
+    image = Image.open(file_name).convert('RGB')
+    prediction_transform = transforms.Compose([transforms.Resize(size=(img_width, img_height)),
+                                     transforms.ToTensor()])
+    # discard the transparent, alpha channel (that's the :3) and add the batch dimension
+    image = prediction_transform(image)[:3,:,:].unsqueeze(0)
+    return image
 
 def format_file_name(image_path):
     url_split = image_path.split("/")
@@ -52,14 +50,14 @@ def get_covid19_prediagnosis():
     print(content)
     imagenUrl = content['imagenUrl']
     print(imagenUrl)
-    img_tensor = load_image_firebase(imagenUrl)
-    input_data = torch.Tensor(img_tensor)
+    img_tensor = load_input_image(imagenUrl)
+    print (img_tensor.shape)
+    input_data = img_tensor
     print ('image loaded')
     result = model(input_data)
     print ('before final return')
     file_name = format_file_name(imagenUrl)
     os.remove(file_name)
-    print('Prediction: {}'.format(inv_mapping[result.argmax(axis=1)[0]]))
 
     return jsonify({'result': result.tolist()})
 
