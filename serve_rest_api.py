@@ -5,6 +5,7 @@ import cv2
 from flask_cors import CORS
 import CNNModel1
 import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
 
@@ -15,6 +16,8 @@ img_width, img_height = 224, 224
 
 # Specify the pytorch model path
 PATH = "models/model_scratch.pt"
+
+classes = ['normal', 'COVID-19']
 
 def load_input_image(image_path):
     file_name = format_file_name(image_path)
@@ -54,12 +57,21 @@ def get_covid19_prediagnosis():
     print (img_tensor.shape)
     input_data = img_tensor
     print ('image loaded')
-    result = model(input_data)
+
+    with torch.no_grad():
+        output = model(input_data)
+        softmax = nn.Softmax(dim=1)
+        pred_probs = softmax(output).numpy()[0]
+        index = torch.argmax(output, 1)
+
+    result = {"label": classes[index], "probability": str(pred_probs[index])}
+    print(result)
+
     print ('before final return')
     file_name = format_file_name(imagenUrl)
     os.remove(file_name)
 
-    return jsonify({'result': result.tolist()})
+    return jsonify({'result': result})
 
 if __name__ == '__main__':
     load_pytorch_model()
