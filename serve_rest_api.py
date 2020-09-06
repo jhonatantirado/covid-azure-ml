@@ -1,7 +1,6 @@
 import os
 import urllib.request
 from flask import Flask, jsonify, request
-import cv2
 from flask_cors import CORS
 import CNNModel1
 import torch
@@ -17,7 +16,7 @@ img_width, img_height = 224, 224
 # Specify the pytorch model path
 PATH = "models/model_scratch.pt"
 
-classes = ['normal', 'COVID-19']
+classes = ['normal', 'pneumonia']
 
 def load_input_image(image_path):
     file_name = format_file_name(image_path)
@@ -48,15 +47,10 @@ def load_pytorch_model():
 
 @app.route('/todo/api/v1.0/covid19', methods=['POST'])
 def get_covid19_prediagnosis():
-    print('get_covid19_prediagnosis')
     content = request.json
-    print(content)
-    imagenUrl = content['imagenUrl']
-    print(imagenUrl)
+    imagenUrl = content['imageUrl']
     img_tensor = load_input_image(imagenUrl)
-    print (img_tensor.shape)
     input_data = img_tensor
-    print ('image loaded')
 
     with torch.no_grad():
         output = model(input_data)
@@ -65,9 +59,7 @@ def get_covid19_prediagnosis():
         index = torch.argmax(output, 1)
 
     result = {"label": classes[index], "probability": str(pred_probs[index])}
-    print(result)
 
-    print ('before final return')
     file_name = format_file_name(imagenUrl)
     os.remove(file_name)
 
